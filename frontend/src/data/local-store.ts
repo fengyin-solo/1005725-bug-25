@@ -48,6 +48,15 @@ export function saveRows(key: string, rows: EntryRow[]): void {
   }
 }
 
+// 一次落库：多个模块的改动合并成同一份数据写一次，避免只写一半留下对不上的账。
+export function saveModules(patch: Record<string, EntryRow[]>): void {
+  const next = { ...allRows(), ...patch }
+  cache = next
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  }
+}
+
 export function resetRows(key: string): EntryRow[] {
   const rows = clone(SEED_ROWS[key] ?? [])
   saveRows(key, rows)

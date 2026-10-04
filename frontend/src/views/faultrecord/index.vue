@@ -42,7 +42,12 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="String(row.id)">
+        <tr
+          v-for="row in rows"
+          :key="String(row.id)"
+          :class="{ 'row-selected': selected && Number(selected.id) === Number(row.id) }"
+          @click="selectRow(row)"
+        >
           <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
           <td>{{ row.status }}</td>
           <td class="row-actions">
@@ -51,7 +56,7 @@
               :key="action"
               class="link"
               type="button"
-              @click="runAction(action, row)"
+              @click.stop="runAction(action, row)"
             >
               {{ action }}
             </button>
@@ -62,6 +67,23 @@
         </tr>
       </tbody>
     </table>
+
+    <aside v-if="selected" class="detail-panel">
+      <header class="detail-head">
+        <h3>录波明细 · {{ selected['录波编号'] }}</h3>
+        <button class="btn ghost" type="button" @click="selectedId = null">收起</button>
+      </header>
+      <dl class="detail-grid">
+        <div v-for="field in detailFields" :key="field" class="detail-item">
+          <dt>{{ field }}</dt>
+          <dd>{{ selected[field] ?? '—' }}</dd>
+        </div>
+        <div class="detail-item">
+          <dt>当前状态</dt>
+          <dd>{{ selected.status }}</dd>
+        </div>
+      </dl>
+    </aside>
 
     <footer class="page-foot">
       <span>共 {{ total }} 条故障录波记录</span>
@@ -75,22 +97,27 @@ import { computed, onMounted, ref } from 'vue'
 
 import {
   downloadEntries,
+  faultRecordMetrics,
   listEntries,
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
+import { useSessionStore } from '@/stores/session'
 
 const meta = moduleMeta('faultrecord')
 const columns = ["录波编号", "故障线路", "故障类型", "故障电流", "故障时间", "分析人", "分析结论", "录波状态"]
 const actions = ["提交分析", "确认定性", "归档录波"]
 const statuses = ["待分析", "分析中", "已定性", "已归档"]
-const stats = [{"label": "待分析录波", "value": 0}, {"label": "分析中录波", "value": 0}, {"label": "本月归档数", "value": 0}]
+const detailFields = [...columns, "归档时间"]
 
+const session = useSessionStore()
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
+const selectedId = ref<number | null>(null)
+const stats = ref<{ label: string; value: number }[]>([])
 const filterFields = columns.slice(0, 3)
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
@@ -98,6 +125,15 @@ const statusSummary = computed(() =>
     count: rows.value.filter((row) => String(row.status) === status).length,
   })),
 )
+
+// 明细面板与录波名单读的是同一份台账数据，分析人等字段两边天然一致。
+const selected = computed(
+  () => rows.value.find((row) => Number(row.id) === selectedId.value) ?? null,
+)
+
+function selectRow(row: EntryRow) {
+  selectedId.value = Number(row.id)
+}
 
 function resetFilters() {
   filters.value = {}
@@ -114,7 +150,7 @@ function openCreate() {
 
 function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
-  const result = applyAction(meta.key, Number(row.id), action)
+  const result = applyAction(meta.key, Number(row.id), action, session.operator)
   if (!result.ok) {
     errorMessage.value = result.message
     return
@@ -128,6 +164,7 @@ function reload() {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    stats.value = faultRecordMetrics()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '故障录波列表读取失败'
   }
@@ -135,3 +172,42 @@ function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.data-table tbody tr {
+  cursor: pointer;
+}
+.row-selected td {
+  background: #eef4ff;
+}
+.detail-panel {
+  margin-top: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.detail-head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 12px 0 0;
+}
+.detail-item dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.detail-item dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+</style>

@@ -78,6 +78,7 @@ export const MODULES: ModuleMeta[] = [
     actions: ["提交分析", "确认定性", "归档录波"],
     actionTargets: {"提交分析": "分析中", "确认定性": "已定性", "归档录波": "已归档"},
     metrics: ["待分析录波", "分析中录波", "本月归档数"],
+    enforceOrder: true,
   },
   {
     key: "tripstat",
