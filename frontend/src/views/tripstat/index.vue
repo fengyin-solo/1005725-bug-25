@@ -43,7 +43,13 @@
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="String(row.id)">
-          <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
+          <td v-for="column in columns" :key="column">
+            {{ row[column] ?? '—' }}
+            <small
+              v-if="column === '所属线路' && row['来源录波']"
+              class="line-cite"
+            >来自录波 {{ row['来源录波'] }}｜{{ row['故障类型'] || '故障类型待定' }}｜{{ row['分析结论'] || '分析结论待归档补充' }}</small>
+          </td>
           <td>{{ row.status }}</td>
           <td class="row-actions">
             <button
@@ -79,8 +85,10 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import { useSessionStore } from '@/stores/session'
 import type { EntryRow } from '@/data/types'
 
+const store = useSessionStore()
 const meta = moduleMeta('tripstat')
 const columns = ["统计编号", "所属线路", "动作次数", "正确动作次数", "误动次数", "统计月份", "统计人", "统计状态"]
 const actions = ["提交统计", "确认汇总", "送交复核"]
@@ -114,7 +122,7 @@ function openCreate() {
 
 function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
-  const result = applyAction(meta.key, Number(row.id), action)
+  const result = applyAction(meta.key, Number(row.id), action, store.operator)
   if (!result.ok) {
     errorMessage.value = result.message
     return
@@ -135,3 +143,13 @@ function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.line-cite {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+</style>

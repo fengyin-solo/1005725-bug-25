@@ -8,6 +8,16 @@ export type EntryRow = {
   [field: string]: string | number | boolean
 }
 
+/** 登记新记录时的入参：编号、状态、标记由数据层统一补齐。 */
+export type EntryDraft = {
+  fields: Record<string, string>
+}
+
+/** 台账内字段的局部修订，只允许改业务字段，状态走动作流转。 */
+export type EntryPatch = {
+  fields: Record<string, string>
+}
+
 export type ModuleMeta = {
   key: string
   name: string
@@ -32,7 +42,18 @@ export type ActionResult = {
   message: string
 }
 
+export type MetricValue = {
+  label: string
+  value: number
+}
+
 export type OverviewResult = {
   cards: { label: string; value: number }[]
-  modules: { name: string; created: number; pending: number; abnormal: number }[]
+  modules: {
+    name: string
+    created: number
+    pending: number
+    abnormal: number
+    metrics: MetricValue[]
+  }[]
 }
